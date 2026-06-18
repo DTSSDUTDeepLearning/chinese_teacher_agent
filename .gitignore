@@ -1,0 +1,67 @@
+# ============================
+# 后端 Python 项目忽略规则
+# ============================
+
+# 虚拟环境
+src/backend/venv/
+src/backend/.venv/
+
+# Python 缓存和字节码
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# 环境变量文件
+src/backend/.env
+src/backend/.env.local
+src/backend/.env.*.local
+
+# 测试和日志
+.pytest_cache/
+*.log
+
+# Python 包构建产物
+*.egg-info/
+dist/
+build/
+
+# ============================
+# 前端 Vue/Vite 项目忽略规则
+# ============================
+
+# 依赖目录
+src/frontend/node_modules/
+
+# 构建输出
+src/frontend/dist/
+
+# Vite 缓存
+src/frontend/.vite/
+
+# 本地环境文件
+src/frontend/.env.local
+src/frontend/.env.*.local
+
+# 编辑器配置（可选，如果你想统一团队配置可以不忽略）
+# .vscode/
+# .idea/
+
+# ============================
+# 通用忽略规则
+# ============================
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 编辑器备份文件
+*.swp
+*.swo
+*~
+
+# 日志文件
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

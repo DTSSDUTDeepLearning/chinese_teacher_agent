@@ -20,7 +20,7 @@
 
 | 软件名称 | 推荐版本 | 用途 | 官方下载地址 |
 |----------|----------|------|-------------|
-| Python | 3.11.9 | 运行后端 FastAPI 服务 | https://www.python.org/downloads/release/python-3119/ |
+| Python | 3.12.10 | 运行后端 FastAPI 服务 | https://www.python.org/downloads/release/python-31210/ |
 | MySQL Community Server | 8.0.37 | 数据持久化存储 | https://dev.mysql.com/downloads/installer/ |
 
 > **安装提示**：
@@ -75,7 +75,7 @@
 
 | 组件 | 最低版本 | 推荐版本 | 备注 |
 |------|----------|----------|------|
-| Python | 3.10 | 3.11.9 | 3.11 性能较优且生态兼容性好 |
+| Python | 3.10 | 3.12.10 | 3.12 性能较优且生态兼容性好 |
 | MySQL | 8.0 | 8.0.37 | 8.0 以下版本部分特性不支持 |
 | Node.js（开发环境） | 18.0 | 20.14.0 LTS | 仅开发阶段使用 |
 | 浏览器（用户端） | Chrome 100 / Edge 100 | 最新稳定版 | 需支持现代 JavaScript 和 CSS 特性 |

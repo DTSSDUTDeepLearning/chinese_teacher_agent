@@ -49,7 +49,66 @@
 | [docs/requirements/feature-03-命题作文出题.md](docs/requirements/feature-03-命题作文出题.md) | 功能3详细需求 |
 | [docs/design/](docs/design/) | 技术设计方案（待补充） |
 
-## 六、后续迭代方向
+## 六、快速开始（部署运行）
+
+### 1. 安装后端依赖
+
+```bash
+cd src/backend
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+# macOS / Linux
+source venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+### 2. 配置 API Key
+
+本项目使用 **DeepSeek API** 作为大语言模型服务，你需要先获取自己的 API Key：
+
+1. 访问 [DeepSeek 开放平台](https://platform.deepseek.com/) 注册账号
+2. 进入「API Keys」页面，点击「创建 API Key」
+3. 复制生成的密钥（格式类似 `sk-xxxxxxxxxxxxxxxx`）
+
+然后，将环境变量模板复制为正式配置文件：
+
+```bash
+cp .env.example .env        # macOS / Linux
+copy .env.example .env      # Windows
+```
+
+编辑 `.env` 文件，将你的 API Key 填入：
+
+```env
+DEEPSEEK_API_KEY=sk-你的实际API密钥
+```
+
+> **注意**：`.env` 文件已加入 `.gitignore`，不会意外提交到代码仓库，请放心使用。
+
+### 3. 启动后端服务
+
+```bash
+uvicorn main:app --reload
+```
+
+服务启动后，API 文档可访问 http://localhost:8000/docs
+
+### 4. 启动前端（开发模式）
+
+```bash
+cd src/frontend
+npm install
+npm run dev
+```
+
+前端开发服务器默认运行在 http://localhost:5173
+
+---
+
+## 七、后续迭代方向
 
 - 收集教师实际使用反馈，细化各功能的输入输出格式。
 - 视情况引入本地知识库（如部编版初中语文课文清单、作者信息表），提升输出准确性。
