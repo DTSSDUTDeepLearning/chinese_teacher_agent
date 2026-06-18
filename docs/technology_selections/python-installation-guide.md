@@ -1,16 +1,16 @@
-# Python 3.11.9 安装指南
+# Python 3.12.10 安装指南
 
-本指南提供 Windows 操作系统下 Python 3.11.9 的详细安装步骤，可供自动化助手按步骤执行安装。
+本指南提供 Windows 操作系统下 Python 3.12.10 的详细安装步骤，可供自动化助手按步骤执行安装。
 
 ---
 
 ## 一、下载安装包
 
 1. 打开浏览器，访问官方下载地址：
-   - 地址：https://www.python.org/downloads/release/python-3119/
-   - 或直接访问：https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe
+   - 地址：https://www.python.org/downloads/release/python-31210/
+   - 或直接访问：https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe
 
-2. 在页面中找到 "Windows installer (64-bit)" 链接，文件名为 `python-3.11.9-amd64.exe`。
+2. 在页面中找到 "Windows installer (64-bit)" 链接，文件名为 `python-3.12.10-amd64.exe`。
 
 3. 点击下载，等待下载完成。文件大小约 25-30 MB。
 
@@ -20,7 +20,7 @@
 
 1. 打开文件下载目录（默认为 `Downloads` 文件夹）。
 
-2. 找到下载的文件 `python-3.11.9-amd64.exe`。
+2. 找到下载的文件 `python-3.12.10-amd64.exe`。
 
 3. **关键步骤**：双击运行安装程序。
 
@@ -60,7 +60,7 @@
    - `☐ Download debug binaries`（不需要）
 
 2. 自定义安装路径（可选）：
-   - 默认路径为 `C:\Program Files\Python311`
+   - 默认路径为 `C:\Program Files\Python312`
    - 如需修改，点击 `Browse` 按钮选择新路径
    - 建议保持默认路径
 
@@ -93,7 +93,7 @@
 
 4. 预期输出：
    ```
-   Python 3.11.9
+   Python 3.12.10
    ```
 
 5. 继续输入以下命令验证 pip 是否安装成功：
@@ -103,10 +103,10 @@
 
 6. 预期输出（版本号可能略有不同）：
    ```
-   pip 24.0 from ...\site-packages\pip (python 3.11)
+   pip 24.0 from ...\site-packages\pip (python 3.12)
    ```
 
-7. 如果以上命令均返回正确结果，说明 Python 3.11.9 安装成功。
+7. 如果以上命令均返回正确结果，说明 Python 3.12.10 安装成功。
 
 ---
 
@@ -115,5 +115,5 @@
 | 问题 | 解决方案 |
 |------|----------|
 | 命令行输入 `python` 提示找不到命令 | 安装时未勾选 "Add python.exe to PATH"。可重新运行安装程序选择 "Modify" 并勾选该选项，或手动添加环境变量。 |
-| 系统中已安装其他 Python 版本 | 可在命令行中使用 `py -3.11` 明确指定 3.11 版本，或调整 PATH 环境变量的优先级顺序。 |
+| 系统中已安装其他 Python 版本 | 可在命令行中使用 `py -3.12` 明确指定 3.12 版本，或调整 PATH 环境变量的优先级顺序。 |
 | 安装过程中提示权限不足 | 右键点击安装程序，选择 "以管理员身份运行"。 |
