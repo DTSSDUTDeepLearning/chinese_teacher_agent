@@ -87,7 +87,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import {
   PlusOutlined,
   MessageOutlined,
@@ -97,64 +97,113 @@ import {
   LoadingOutlined,
 } from '@ant-design/icons-vue'
 
-const conversations = ref([
-  {
-    id: '1',
-    title: '古诗文默写 - 七年级上册',
-    time: '今天 14:30',
-    messages: [
-      {
-        role: 'user',
-        content: '帮我出10道七年级上册的古诗文默写题，体裁不限，仅重点篇目',
-        time: '14:30',
-      },
-      {
-        role: 'assistant',
-        content:
-          '好的，以下是为您生成的10道古诗文默写题：\n\n1. ______，志在千里。（《龟虽寿》曹操）\n2. 日月之行，______；星汉灿烂，______。（《观沧海》曹操）\n...',
-        time: '14:31',
-      },
-    ],
-  },
-  {
-    id: '2',
-    title: '《岳阳楼记》知识图谱',
-    time: '昨天 10:15',
-    messages: [
-      { role: 'user', content: '查看《岳阳楼记》的知识图谱', time: '10:15' },
-      {
-        role: 'assistant',
-        content:
-          '已为您生成《岳阳楼记》的知识图谱。中心节点为《岳阳楼记》，关联节点包括：作者范仲淹、朝代北宋、同作者作品《渔家傲·秋思》等。',
-        time: '10:16',
-      },
-    ],
-  },
-])
-
-const activeId = ref('1')
+// 对话列表从后端获取
+const conversations = ref([])
+const activeId = ref(null)
 const inputText = ref('')
 const messagesRef = ref(null)
 const isLoading = ref(false)
 const errorMsg = ref('')
 
 const activeConversation = computed(() =>
-  conversations.value.find((c) => c.id === activeId.value)
+  conversations.value.find((c) => String(c.id) === String(activeId.value))
 )
 
-function selectConversation(id) {
-  activeId.value = id
+function formatTime(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
-function createNewChat() {
-  const newId = String(Date.now())
-  conversations.value.unshift({
-    id: newId,
-    title: '新对话',
-    time: '刚刚',
-    messages: [],
-  })
-  activeId.value = newId
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const now = new Date()
+  const isToday = d.toDateString() === now.toDateString()
+  if (isToday) {
+    return '今天 ' + formatTime(dateStr)
+  }
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) {
+    return '昨天 ' + formatTime(dateStr)
+  }
+  return d.toLocaleDateString('zh-CN')
+}
+
+async function fetchConversations() {
+  try {
+    const res = await fetch('/api/v1/conversations')
+    if (!res.ok) throw new Error('获取对话列表失败')
+    const data = await res.json()
+    // 列表API只返回对话信息，不返回消息
+    conversations.value = data.map((c) => ({
+      id: c.id,
+      title: c.title,
+      time: formatDate(c.modify_time || c.create_time),
+      messages: [], // 消息在选中对话时再加载
+    }))
+    // 默认选中第一个
+    if (conversations.value.length > 0 && !activeId.value) {
+      activeId.value = conversations.value[0].id
+      await loadConversationMessages(conversations.value[0].id)
+    }
+  } catch (err) {
+    console.error('fetchConversations error:', err)
+  }
+}
+
+async function loadConversationMessages(conversationId) {
+  try {
+    const res = await fetch(`/api/v1/conversations/${conversationId}`)
+    if (!res.ok) throw new Error('获取对话详情失败')
+    const data = await res.json()
+    const conv = conversations.value.find((c) => c.id === conversationId)
+    if (conv) {
+      conv.messages = (data.messages || []).map((m) => ({
+        role: m.role,
+        content: m.content,
+        time: formatTime(m.create_time),
+      }))
+    }
+  } catch (err) {
+    console.error('loadConversationMessages error:', err)
+  }
+}
+
+onMounted(() => {
+  fetchConversations()
+})
+
+async function selectConversation(id) {
+  activeId.value = id
+  const conv = conversations.value.find((c) => c.id === id)
+  if (conv && conv.messages.length === 0) {
+    await loadConversationMessages(id)
+  }
+}
+
+async function createNewChat() {
+  try {
+    const res = await fetch('/api/v1/conversations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '新对话' }),
+    })
+    if (!res.ok) throw new Error('创建对话失败')
+    const conv = await res.json()
+    const newConv = {
+      id: conv.id,
+      title: conv.title,
+      time: '刚刚',
+      messages: [],
+    }
+    conversations.value.unshift(newConv)
+    activeId.value = conv.id
+  } catch (err) {
+    console.error('createNewChat error:', err)
+    alert('创建对话失败，请稍后重试')
+  }
 }
 
 function nowTime() {
@@ -163,10 +212,18 @@ function nowTime() {
 
 async function sendMessage() {
   const text = inputText.value.trim()
-  if (!text || !activeConversation.value || isLoading.value) return
+  if (!text || isLoading.value) return
+
+  // 如果没有活跃对话，先创建一个
+  let currentConv = activeConversation.value
+  if (!currentConv) {
+    await createNewChat()
+    currentConv = activeConversation.value
+    if (!currentConv) return
+  }
 
   // 1. 添加用户消息
-  activeConversation.value.messages.push({
+  currentConv.messages.push({
     role: 'user',
     content: text,
     time: nowTime(),
@@ -181,18 +238,18 @@ async function sendMessage() {
 
   try {
     // 2. 调用后端 /api/v1/chat
-    const apiMessages = activeConversation.value.messages.map((m) => ({
+    const apiMessages = currentConv.messages.map((m) => ({
       role: m.role,
       content: m.content,
     }))
 
     console.log('Sending request to:', '/api/v1/chat')
-    console.log('Request body:', JSON.stringify({ messages: apiMessages }))
+    console.log('Request body:', JSON.stringify({ messages: apiMessages, conversation_id: currentConv.id }))
 
     const res = await fetch('/api/v1/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: apiMessages }),
+      body: JSON.stringify({ messages: apiMessages, conversation_id: currentConv.id }),
     })
 
     if (!res.ok) {
@@ -205,14 +262,19 @@ async function sendMessage() {
     const data = await res.json()
 
     // 3. 添加 AI 回复
-    activeConversation.value.messages.push({
+    currentConv.messages.push({
       role: 'assistant',
       content: data.content,
       time: nowTime(),
     })
+
+    // 更新标题（如果是默认标题，用第一条用户消息前20字作为标题）
+    if (currentConv.title === '新对话') {
+      currentConv.title = text.slice(0, 20)
+    }
   } catch (err) {
     errorMsg.value = err.message
-    activeConversation.value.messages.push({
+    currentConv.messages.push({
       role: 'assistant',
       content: `抱歉，请求出错：${err.message}，请稍后重试。`,
       time: nowTime(),
