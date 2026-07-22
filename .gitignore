@@ -68,3 +68,6 @@ pnpm-debug.log*
 
 # 教材数据，私有，不共享
 chinese_teacher_data/
+
+# 知识库生成产物（由源 md 自动生成，含全文内容，不共享）
+src/backend/data/poems.json

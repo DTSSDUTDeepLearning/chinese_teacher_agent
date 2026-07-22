@@ -10,11 +10,18 @@
   },
   "dependencies": {
     "ant-design-vue": "^4.x",
+    "marked": "^18.0.5",
     "vue": "^3.4.x",
     "vue-router": "^4.x"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.x",
-    "vite": "^5.x"
+    "@vitejs/plugin-vue": "^5.2.4",
+    "vite": "^6.4.3"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "4.62.0"
+  },
+  "overrides": {
+    "rollup": "4.62.0"
   }
 }

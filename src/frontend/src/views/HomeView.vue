@@ -40,8 +40,23 @@
               <RobotOutlined v-else />
             </div>
             <div class="bubble">
-              <div class="content">{{ msg.content }}</div>
-              <div class="time">{{ msg.time }}</div>
+              <!-- 用户消息：纯文本 -->
+              <div v-if="msg.role === 'user'" class="content">{{ msg.content }}</div>
+              <!-- AI 消息：Markdown 渲染 -->
+              <div v-else class="content markdown-body" v-html="renderMarkdown(msg.content)"></div>
+              <div class="msg-footer">
+                <span class="time">{{ msg.time }}</span>
+                <a-button
+                  v-if="msg.role === 'assistant'"
+                  type="text"
+                  size="small"
+                  class="copy-btn"
+                  @click="copyContent(msg.content)"
+                >
+                  <CopyOutlined />
+                  复制
+                </a-button>
+              </div>
             </div>
           </div>
           <!-- 思考中提示 -->
@@ -62,6 +77,9 @@
           <p style="color: #8c8c8c; margin-top: 16px">
             新建一个对话，或选择左侧历史对话
           </p>
+          <p style="color: #bfbfbf; margin-top: 8px; font-size: 13px">
+            试试说："帮我出6道八年级下学期的古诗文默写题"
+          </p>
         </div>
       </div>
 
@@ -69,9 +87,9 @@
         <a-textarea
           v-model:value="inputText"
           :rows="3"
-          placeholder="输入您的问题..."
+          placeholder="输入您的问题，如：帮我出6道八年级下学期的古诗文默写题"
           :disabled="isLoading"
-          @keydown.enter.prevent="sendMessage"
+          @keydown="handleKeydown"
         />
         <a-button
           type="primary"
@@ -88,6 +106,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted } from 'vue'
+import { marked } from 'marked'
 import {
   PlusOutlined,
   MessageOutlined,
@@ -95,9 +114,16 @@ import {
   RobotOutlined,
   SendOutlined,
   LoadingOutlined,
+  CopyOutlined,
 } from '@ant-design/icons-vue'
+import { message as antMessage } from 'ant-design-vue'
 
-// 对话列表从后端获取
+// Markdown 渲染配置
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+})
+
 const conversations = ref([])
 const activeId = ref(null)
 const inputText = ref('')
@@ -108,6 +134,42 @@ const errorMsg = ref('')
 const activeConversation = computed(() =>
   conversations.value.find((c) => String(c.id) === String(activeId.value))
 )
+
+// 出题意图关键词
+const QUIZ_KEYWORDS = ['默写', '出题', '填空', '理解性默写', '上下句', '古诗文', '古诗', '古文']
+// quiz 追问特征（quiz_agent 范围不完整时的追问话术）
+const QUIZ_FOLLOWUP_MARKERS = ['请问您需要哪个年级', '上册、下册，还是都要']
+
+function isQuizRequest(text, messages) {
+  // 1. 当前消息含出题关键词 -> 走 quiz
+  if (QUIZ_KEYWORDS.some((kw) => text.includes(kw))) return true
+  // 2. 当前消息不含关键词，但上一条 assistant 消息是 quiz 的追问 -> 仍走 quiz（多轮补充）
+  if (messages && messages.length >= 1) {
+    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
+    if (lastAssistant && QUIZ_FOLLOWUP_MARKERS.some((mk) => lastAssistant.content.includes(mk))) {
+      return true
+    }
+  }
+  return false
+}
+
+function renderMarkdown(text) {
+  if (!text) return ''
+  try {
+    return marked.parse(text)
+  } catch (e) {
+    return text
+  }
+}
+
+async function copyContent(content) {
+  try {
+    await navigator.clipboard.writeText(content)
+    antMessage.success('已复制到剪贴板')
+  } catch (e) {
+    antMessage.error('复制失败，请手动选择文本复制')
+  }
+}
 
 function formatTime(dateStr) {
   if (!dateStr) return ''
@@ -136,14 +198,12 @@ async function fetchConversations() {
     const res = await fetch('/api/v1/conversations')
     if (!res.ok) throw new Error('获取对话列表失败')
     const data = await res.json()
-    // 列表API只返回对话信息，不返回消息
     conversations.value = data.map((c) => ({
       id: c.id,
       title: c.title,
       time: formatDate(c.modify_time || c.create_time),
-      messages: [], // 消息在选中对话时再加载
+      messages: [],
     }))
-    // 默认选中第一个
     if (conversations.value.length > 0 && !activeId.value) {
       activeId.value = conversations.value[0].id
       await loadConversationMessages(conversations.value[0].id)
@@ -202,12 +262,21 @@ async function createNewChat() {
     activeId.value = conv.id
   } catch (err) {
     console.error('createNewChat error:', err)
-    alert('创建对话失败，请稍后重试')
+    antMessage.error('创建对话失败，请稍后重试')
   }
 }
 
 function nowTime() {
   return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
+function handleKeydown(e) {
+  // 中文输入法组合输入中，回车用于确认候选词，不发送
+  if (e.isComposing || e.keyCode === 229) return
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    sendMessage()
+  }
 }
 
 async function sendMessage() {
@@ -228,6 +297,10 @@ async function sendMessage() {
     content: text,
     time: nowTime(),
   })
+  // 清空输入框：先置空，并在下一轮事件循环再兜底一次，
+  // 防止中文输入法 compositionend 在 keydown 之后把文本写回
+  inputText.value = ''
+  await nextTick()
   inputText.value = ''
   isLoading.value = true
   errorMsg.value = ''
@@ -237,38 +310,55 @@ async function sendMessage() {
   })
 
   try {
-    // 2. 调用后端 /api/v1/chat
-    const apiMessages = currentConv.messages.map((m) => ({
-      role: m.role,
-      content: m.content,
-    }))
+    let replyContent = ''
 
-    console.log('Sending request to:', '/api/v1/chat')
-    console.log('Request body:', JSON.stringify({ messages: apiMessages, conversation_id: currentConv.id }))
-
-    const res = await fetch('/api/v1/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: apiMessages, conversation_id: currentConv.id }),
-    })
-
-    if (!res.ok) {
-      const errorText = await res.text()
-      console.error('Backend error response:', errorText)
-      alert(`后端错误 (${res.status}):\n${errorText}`)
-      throw new Error(`HTTP ${res.status}: ${errorText}`)
+    // 2. 自动路由：出题意图走 /quiz/generate，其他走 /chat
+    //    多轮追问场景：上一条 assistant 是 quiz 追问时，当前消息仍走 quiz
+    if (isQuizRequest(text, currentConv.messages)) {
+      console.log('路由到出题Agent：/api/v1/quiz/generate')
+      // 构建对话历史（当前消息之前的历史），传给 quiz agent 合并解析
+      const history = currentConv.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }))
+      const res = await fetch('/api/v1/quiz/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, history }),
+      })
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`HTTP ${res.status}: ${errorText}`)
+      }
+      const data = await res.json()
+      replyContent = data.content
+    } else {
+      console.log('路由到通用聊天：/api/v1/chat')
+      const apiMessages = currentConv.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }))
+      const res = await fetch('/api/v1/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: apiMessages, conversation_id: currentConv.id }),
+      })
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`HTTP ${res.status}: ${errorText}`)
+      }
+      const data = await res.json()
+      replyContent = data.content
     }
-
-    const data = await res.json()
 
     // 3. 添加 AI 回复
     currentConv.messages.push({
       role: 'assistant',
-      content: data.content,
+      content: replyContent,
       time: nowTime(),
     })
 
-    // 更新标题（如果是默认标题，用第一条用户消息前20字作为标题）
+    // 更新标题
     if (currentConv.title === '新对话') {
       currentConv.title = text.slice(0, 20)
     }
@@ -423,11 +513,51 @@ async function sendMessage() {
   white-space: pre-wrap;
 }
 
+/* Markdown 渲染样式 */
+.markdown-body {
+  white-space: normal;
+}
+
+.markdown-body :deep(ol),
+.markdown-body :deep(ul) {
+  padding-left: 24px;
+  margin: 8px 0;
+}
+
+.markdown-body :deep(li) {
+  margin: 4px 0;
+}
+
+.markdown-body :deep(p) {
+  margin: 8px 0;
+}
+
+.markdown-body :deep(strong) {
+  font-weight: 600;
+}
+
+.msg-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 4px;
+  gap: 8px;
+}
+
 .time {
   font-size: 12px;
   color: #8c8c8c;
-  margin-top: 4px;
-  text-align: right;
+}
+
+.copy-btn {
+  font-size: 12px;
+  color: #8c8c8c;
+  padding: 0 4px;
+  height: 24px;
+}
+
+.copy-btn:hover {
+  color: #1677ff;
 }
 
 .input-area {
